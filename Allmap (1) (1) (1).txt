@@ -698,8 +698,6 @@ local function GetPlayerNames()
 end
 
 -- UI
-
--- Toggle เปิด/ปิดตาม
 PlayerTab:Toggle({
     Title = "Enable Follow",
     Default = false,
@@ -709,7 +707,6 @@ PlayerTab:Toggle({
     end
 })
 
--- Dropdown เลือกโหมด
 PlayerTab:Dropdown({
     Title = "Mode",
     Values = {"Tween", "TP"},
@@ -721,7 +718,6 @@ PlayerTab:Dropdown({
     end
 })
 
--- Dropdown เลือกเป้าหมาย (ใช้ Dropdown เดียวทั้งตามและสิงมุมมอง)
 PlayerTab:Dropdown({
     Title = "Select Target",
     Values = GetPlayerNames(),
@@ -733,7 +729,6 @@ PlayerTab:Dropdown({
     end
 })
 
--- Toggle สิงมุมมอง
 PlayerTab:Toggle({
     Title = "Lock Camera to Target",
     Default = false,
@@ -743,26 +738,32 @@ PlayerTab:Toggle({
     end
 })
 
--- Loop อัปเดตตามและสิงมุมมอง
-RunService.RenderStepped:Connect(function()
+-- ฟังก์ชันอัปเดตตามและสิงกล้อง
+RunService.RenderStepped:Connect(function(delta)
     if FollowSettings.Enabled and FollowSettings.Target then
         local targetPlayer = Players:FindFirstChild(FollowSettings.Target)
         if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
             local targetHRP = targetPlayer.Character.HumanoidRootPart
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if myHRP then
+                -- คำนวณตำแหน่งตามเป้าหมาย
+                local desiredCFrame = targetHRP.CFrame * CFrame.new(0,0,-FollowSettings.DistanceBehind)
 
-            -- เคลื่อนตัวเราไปตามเป้าหมาย
-            if FollowSettings.Mode == "Tween" then
-                local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Linear)
-                local tween = TweenService:Create(LocalPlayer.Character.HumanoidRootPart, tweenInfo, {CFrame = targetHRP.CFrame * CFrame.new(0,0,-FollowSettings.DistanceBehind)})
-                tween:Play()
-            elseif FollowSettings.Mode == "TP" then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = targetHRP.CFrame * CFrame.new(0,0,-FollowSettings.DistanceBehind)
-            end
+                if FollowSettings.Mode == "Tween" then
+                    -- Tween แบบลื่น
+                    TweenService:Create(myHRP, TweenInfo.new(0.2, Enum.EasingStyle.Linear), {CFrame = desiredCFrame}):Play()
+                elseif FollowSettings.Mode == "TP" then
+                    -- Teleport
+                    myHRP.CFrame = desiredCFrame
+                end
 
-            -- สิงมุมมอง
-            if FollowSettings.LockCamera then
-                Camera.CameraType = Enum.CameraType.Custom
-                Camera.CFrame = targetHRP.CFrame
+                -- สิงมุมมองตัวเป้าหมาย
+                if FollowSettings.LockCamera then
+                    Camera.CameraType = Enum.CameraType.Scriptable
+                    Camera.CFrame = targetHRP.CFrame
+                else
+                    Camera.CameraType = Enum.CameraType.Custom
+                end
             end
         end
     end
