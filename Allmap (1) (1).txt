@@ -1,4 +1,4 @@
-loadstring(game:HttpGet("https://raw.githubusercontent.com/MUMUMU1548/Main/refs/heads/main/Webhook"))()
+
 -- ========
 -- AIDMI
 -- ======
