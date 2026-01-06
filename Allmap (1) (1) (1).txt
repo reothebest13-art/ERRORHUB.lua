@@ -670,3 +670,100 @@ PlayerTab:Button({
         end
     end
 })
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Settings
+local FollowSettings = {
+    Enabled = false,
+    Target = nil,
+    Mode = "Tween",      -- "Tween" หรือ "TP"
+    DistanceBehind = 5,
+    LockCamera = false
+}
+
+-- ฟังก์ชันดึงชื่อผู้เล่น
+local function GetPlayerNames()
+    local names = {}
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            table.insert(names, plr.Name)
+        end
+    end
+    return names
+end
+
+-- UI
+
+-- Toggle เปิด/ปิดตาม
+PlayerTab:Toggle({
+    Title = "Enable Follow",
+    Default = false,
+    Callback = function(state)
+        FollowSettings.Enabled = state
+        print("Follow Enabled:", state)
+    end
+})
+
+-- Dropdown เลือกโหมด
+PlayerTab:Dropdown({
+    Title = "Mode",
+    Values = {"Tween", "TP"},
+    Multi = false,
+    Default = "Tween",
+    Callback = function(selected)
+        FollowSettings.Mode = selected[1]
+        print("Mode:", FollowSettings.Mode)
+    end
+})
+
+-- Dropdown เลือกเป้าหมาย (ใช้ Dropdown เดียวทั้งตามและสิงมุมมอง)
+PlayerTab:Dropdown({
+    Title = "Select Target",
+    Values = GetPlayerNames(),
+    Multi = false,
+    Default = nil,
+    Callback = function(selected)
+        FollowSettings.Target = selected[1]
+        print("Target:", FollowSettings.Target)
+    end
+})
+
+-- Toggle สิงมุมมอง
+PlayerTab:Toggle({
+    Title = "Lock Camera to Target",
+    Default = false,
+    Callback = function(state)
+        FollowSettings.LockCamera = state
+        print("Camera Lock:", state)
+    end
+})
+
+-- Loop อัปเดตตามและสิงมุมมอง
+RunService.RenderStepped:Connect(function()
+    if FollowSettings.Enabled and FollowSettings.Target then
+        local targetPlayer = Players:FindFirstChild(FollowSettings.Target)
+        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local targetHRP = targetPlayer.Character.HumanoidRootPart
+
+            -- เคลื่อนตัวเราไปตามเป้าหมาย
+            if FollowSettings.Mode == "Tween" then
+                local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Linear)
+                local tween = TweenService:Create(LocalPlayer.Character.HumanoidRootPart, tweenInfo, {CFrame = targetHRP.CFrame * CFrame.new(0,0,-FollowSettings.DistanceBehind)})
+                tween:Play()
+            elseif FollowSettings.Mode == "TP" then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = targetHRP.CFrame * CFrame.new(0,0,-FollowSettings.DistanceBehind)
+            end
+
+            -- สิงมุมมอง
+            if FollowSettings.LockCamera then
+                Camera.CameraType = Enum.CameraType.Custom
+                Camera.CFrame = targetHRP.CFrame
+            end
+        end
+    end
+end)
