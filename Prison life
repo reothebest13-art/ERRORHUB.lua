@@ -169,12 +169,10 @@ end
 
 -- อัปเดตทีมจาก Dropdown
 local function updateTeamsFromDropdown(selectedTeams)
-    -- รีเซ็ตทีมทั้งหมดเป็น false ก่อน
     for teamName, _ in pairs(getgenv().SAIM_TEAM_LIST) do
         getgenv().SAIM_TEAM_LIST[teamName] = false
     end
     
-    -- ตั้งค่าทีมที่เลือก
     if type(selectedTeams) == "table" then
         for _, teamName in ipairs(selectedTeams) do
             if getgenv().SAIM_TEAM_LIST[teamName] ~= nil then
@@ -182,8 +180,6 @@ local function updateTeamsFromDropdown(selectedTeams)
             end
         end
     end
-    
-    print("Teams updated:", game:GetService("HttpService"):JSONEncode(getgenv().SAIM_TEAM_LIST))
 end
 
 -- GET TARGET
@@ -294,42 +290,51 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
-local Tab = Window:Tab({Title = "MAIN", Icon = "list"})
+--== AimTab UI CONNECTIONS ==--
 
 -- Toggle Silent Aim
+
+local Tab = Window:Tab({Title = "MAIN", Icon = "list"})
+
 Tab:Toggle({
     Title = "Silent Aim",
-    Desc = "กระสุนตามหัว",
+    Desc = "",
+    Icon = "target",
+    Type = "Checkbox",
     Value = false,
-    Callback = function(v)
-        getgenv().SilentAimbot = v
-        AimLine.Visible = v
+    Callback = function(state)
+        getgenv().SilentAimbot = state
+        AimLine.Visible = state
+        print("Silent Aim: " .. tostring(state))
     end
 })
 
 -- Slider FOV
 Tab:Slider({
     Title = "FOV",
-    Min = 50,
-    Max = 500,
-    Value = 120,
-    Rounding = 0,
-    Callback = function(v)
-        getgenv().SAIM_FOV = v
+    Desc = "",
+    Step = 1,
+    Value = {
+        Min = 50,
+        Max = 500,
+        Default = 120,
+    },
+    Callback = function(value)
+        getgenv().SAIM_FOV = value
+        print("FOV set to: " .. tostring(value))
     end
 })
 
--- Dropdown เลือกทีม (Multi-select)
+-- Dropdown เลือกทีม
 Tab:Dropdown({
-    Title = "เลือกทีม",
+    Title = "Teamtarget",
     Desc = "",
     Values = { "Neutral", "Guards", "Inmates", "Criminals" },
-    Value = { "Neutral" }, -- ค่าเริ่มต้น
+    Value = { "Neutral" },
     Multi = true,
     AllowNone = false,
     Callback = function(selectedTeams)
         updateTeamsFromDropdown(selectedTeams)
+        print("Teams selected: " .. game:GetService("HttpService"):JSONEncode(selectedTeams))
     end
 })
-
-
