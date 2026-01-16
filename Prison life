@@ -101,6 +101,7 @@ local LP = Players.LocalPlayer
 local Cam = workspace.CurrentCamera
 local RS = game:GetService("RunService")
 
+
 -- CONFIG
 getgenv().SilentAimbot = false
 getgenv().SAIM_FOV = 120
@@ -110,6 +111,9 @@ getgenv().SAIM_TEAM_LIST = {
     Inmates = false,
     Criminals = false
 }
+local buffEnabled = false
+
+
 
 -- DRAW FOV CIRCLE 
 local FOVCircle = Drawing.new("Circle")
@@ -236,6 +240,60 @@ if castRay then
 end
 
 
+-- ----
+-- ฟังชั่นบัพปืน
+-- -------
+
+local function BuffGun(tool)
+    if not buffEnabled then return end
+    if tool:IsA("Tool") then
+        task.wait(0.1)
+        tool:SetAttribute("AutoFire", true)
+        tool:SetAttribute("FireRate", 0.001)
+        tool:SetAttribute("Damage", 999)
+        tool:SetAttribute("IsReloading", false)
+    end
+end
+
+local function ClearBuff(tool)
+    if tool:IsA("Tool") then
+        task.wait(0.1)
+        tool:SetAttribute("AutoFire", false)
+        tool:SetAttribute("FireRate", nil)
+        tool:SetAttribute("Damage", nil)
+        tool:SetAttribute("IsReloading", nil)
+    end
+end
+
+local function HandleBuffOnTool(tool)
+    if buffEnabled then
+        BuffGun(tool)
+    else
+        ClearBuff(tool)
+    end
+end
+
+local function ConnectCharacter(char)
+    char.ChildAdded:Connect(HandleBuffOnTool)
+end
+
+local Players = game:GetService("Players")
+local plr = Players.LocalPlayer
+
+plr.CharacterAdded:Connect(function(char)
+    ConnectCharacter(char)
+end)
+
+if plr.Character then
+    ConnectCharacter(plr.Character)
+end
+
+for _, tool in pairs(plr.Backpack:GetChildren()) do
+    HandleBuffOnTool(tool)
+end
+
+plr.Backpack.ChildAdded:Connect(HandleBuffOnTool)
+
 
 
 local Tab = Window:Tab({Title = "MAIN", Icon = "list"})
@@ -278,5 +336,25 @@ Tab:Dropdown({
     AllowNone = false,
     Callback = function(selectedTeams)
         updateTeamsFromDropdown(selectedTeams)
+    end
+})
+
+
+Tab:Toggle({
+    Title = "Buff ปืน",
+    Desc = "ทำให้ปืนยิงรัว",
+    Value = false,
+    Callback = function(v)
+        buffEnabled = v
+        
+        for _, tool in pairs(plr.Backpack:GetChildren()) do
+            HandleBuffOnTool(tool)
+        end
+        
+        if plr.Character then
+            for _, tool in pairs(plr.Character:GetChildren()) do
+                HandleBuffOnTool(tool)
+            end
+        end
     end
 })
