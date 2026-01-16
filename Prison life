@@ -95,8 +95,11 @@ local Window = WindUI:CreateWindow({
 })
 
 
--- ===================== Aimbot =====================
--- ===================== Silent Aim =====================
+local Players = game:GetService("Players")
+local Teams = game:GetService("Teams")
+local LP = Players.LocalPlayer
+local Cam = workspace.CurrentCamera
+local RS = game:GetService("RunService")
 
 -- CONFIG
 getgenv().SilentAimbot = false
@@ -108,52 +111,20 @@ getgenv().SAIM_TEAM_LIST = {
     Criminals = false
 }
 
--- SERVICES
-local Players = game:GetService("Players")
-local Teams = game:GetService("Teams")
-local LP = Players.LocalPlayer
-local Cam = workspace.CurrentCamera
-local RS = game:GetService("RunService")
-
--- ========== ระบบจากต้นฉบับ ==========
-local function getTargetSimple()
-    if not getgenv().SilentAimbot then return end
-    local best, dist = nil, 1e9
-    local cx, cy = Cam.ViewportSize.X/2, Cam.ViewportSize.Y/2
-    
-    for _, v in ipairs(Players:GetPlayers()) do
-        local c = v.Character
-        if v ~= LP and v.Team ~= LP.Team and c then
-            local h = c:FindFirstChild("Head")
-            if h then
-                local p, vis = Cam:WorldToViewportPoint(h.Position)
-                if vis then
-                    local d = (p.X - cx)^2 + (p.Y - cy)^2
-                    if d < dist then 
-                        best, dist = h, d 
-                    end
-                end
-            end
-        end
-    end
-    return best
-end
-
--- ========== ระบบจากเวอร์ชันใหม่ ==========
--- DRAW FOV CIRCLE
+-- DRAW FOV CIRCLE 
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 2
 FOVCircle.Filled = false
 FOVCircle.Color = Color3.fromRGB(255, 255, 255)
 FOVCircle.Radius = getgenv().SAIM_FOV
+FOVCircle.Visible = false
 
--- DRAW AIM LINE
+-- DRAW AIM LINE 
 local AimLine = Drawing.new("Line")
 AimLine.Thickness = 1.5
 AimLine.Color = Color3.fromRGB(255, 0, 0)
 AimLine.Visible = false
 
--- อัปเดตทีมจาก Dropdown
 local function updateTeamsFromDropdown(selectedTeams)
     for teamName, _ in pairs(getgenv().SAIM_TEAM_LIST) do
         getgenv().SAIM_TEAM_LIST[teamName] = false
@@ -168,10 +139,9 @@ local function updateTeamsFromDropdown(selectedTeams)
     end
 end
 
--- TEAM CHECK สำหรับเวอร์ชันใหม่
+-- TEAM CHECK
 local function isAllowedTeam(plr)
     if plr == LP then return false end
-    if plr.Team == LP.Team then return false end
     
     for teamName, enabled in pairs(getgenv().SAIM_TEAM_LIST) do
         if enabled then
@@ -181,12 +151,18 @@ local function isAllowedTeam(plr)
             end
         end
     end
+    
+    if getgenv().SAIM_TEAM_LIST["Neutral"] and (not plr.Team or plr.Team.Name == "Neutral") then
+        return true
+    end
+    
     return false
 end
 
--- GET TARGET สำหรับเวอร์ชันใหม่
-local function getTargetAdvanced()
+-- GET TARGET
+local function getTarget()
     if not getgenv().SilentAimbot then return end
+    
     local best, dist = nil, math.huge
     local cx, cy = Cam.ViewportSize.X/2, Cam.ViewportSize.Y/2
     
@@ -205,29 +181,16 @@ local function getTargetAdvanced()
             end
         end
     end
+    
     return best
-end
-
--- ตัวเลือกว่าจะใช้ระบบไหน (true = เวอร์ชันใหม่, false = ต้นฉบับ)
-local useAdvancedSystem = true
-
--- ฟังก์ชัน getTarget แบบรวม
-local function getTarget()
-    if useAdvancedSystem then
-        return getTargetAdvanced()
-    else
-        return getTargetSimple()
-    end
 end
 
 -- อัปเดต Visuals
 RS.RenderStepped:Connect(function()
-    -- อัปเดต FOV Circle
     FOVCircle.Position = Vector2.new(Cam.ViewportSize.X/2, Cam.ViewportSize.Y/2)
     FOVCircle.Radius = getgenv().SAIM_FOV
-    FOVCircle.Visible = getgenv().SilentAimbot and useAdvancedSystem
+    FOVCircle.Visible = getgenv().SilentAimbot
     
-    -- อัปเดต Aim Line
     if getgenv().SilentAimbot then
         local targetHead = getTarget()
         if targetHead then
@@ -235,7 +198,7 @@ RS.RenderStepped:Connect(function()
             if onScreen then
                 AimLine.From = Vector2.new(Cam.ViewportSize.X/2, Cam.ViewportSize.Y/2)
                 AimLine.To = Vector2.new(screenPos.X, screenPos.Y)
-                AimLine.Visible = useAdvancedSystem
+                AimLine.Visible = true
             else
                 AimLine.Visible = false
             end
@@ -247,7 +210,7 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
--- HOOK castRay (ใช้จากต้นฉบับ)
+-- HOOK castRay
 local castRay
 for _, fn in ipairs(getgc(true)) do
     if typeof(fn) == "function" then
@@ -261,8 +224,6 @@ for _, fn in ipairs(getgc(true)) do
     if castRay then break end
 end
 
-print("Silent Aim Loaded")
-
 if castRay then
     local old
     old = hookfunction(castRay, function(a, b, ...)
@@ -274,103 +235,28 @@ if castRay then
     end)
 end
 
--- BEAM SYSTEM (สำหรับ visual effect เพิ่มเติม)
-local currentBeam, att0, att1
-local myPart, enemyPart
-
-local function createFollowPart(parent)
-    local p = Instance.new("Part")
-    p.Anchored = true
-    p.CanCollide = false
-    p.Transparency = 1
-    p.Size = Vector3.new(0.2, 0.2, 0.2)
-    p.CFrame = parent.CFrame
-    p.Parent = workspace
-    return p
-end
-
-local function createBeam(startPart, endPart)
-    local a0 = Instance.new("Attachment", startPart)
-    local a1 = Instance.new("Attachment", endPart)
-    local beam = Instance.new("Beam")
-    beam.Attachment0 = a0
-    beam.Attachment1 = a1
-    beam.FaceCamera = true
-    beam.Width0 = 0.2
-    beam.Width1 = 0.2
-    beam.LightEmission = 1
-    beam.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 100, 100))
-    })
-    beam.Parent = startPart
-    return beam, a0, a1
-end
-
--- Visual beam loop
-RS.RenderStepped:Connect(function()
-    if getgenv().SilentAimbot and useAdvancedSystem then
-        local head = getTarget()
-        if head and LP.Character and LP.Character:FindFirstChild("Head") then
-            if not myPart then myPart = createFollowPart(LP.Character.Head) end
-            if not enemyPart then enemyPart = createFollowPart(head) end
-            if not currentBeam then currentBeam, att0, att1 = createBeam(myPart, enemyPart) end
-
-            myPart.CFrame = LP.Character.Head.CFrame
-            enemyPart.CFrame = head.CFrame
-        else
-            if currentBeam then currentBeam:Destroy() end
-            currentBeam, att0, att1 = nil, nil, nil
-            if myPart then myPart:Destroy(); myPart = nil end
-            if enemyPart then enemyPart:Destroy(); enemyPart = nil end
-        end
-    else
-        if currentBeam then currentBeam:Destroy() end
-        currentBeam, att0, att1 = nil, nil, nil
-        if myPart then myPart:Destroy(); myPart = nil end
-        if enemyPart then enemyPart:Destroy(); enemyPart = nil end
-    end
-end)
-
---== UI CONFIG ==--
 
 
-
--- Toggle Silent Aim
 
 local Tab = Window:Tab({Title = "MAIN", Icon = "list"})
 
--- Toggle Silent Aim
 Tab:Toggle({
     Title = "Silent Aim",
-    Desc = "เปิดใช้งาน Silent Aim",
+    Desc = "ล็อคกระสุน",
     Icon = "target",
     Type = "Checkbox",
     Value = getgenv().SilentAimbot,
     Callback = function(state)
         getgenv().SilentAimbot = state
-        AimLine.Visible = state and useAdvancedSystem
+        FOVCircle.Visible = state
+        AimLine.Visible = state
     end
 })
 
--- Toggle เลือกระบบ
-Tab:Toggle({
-    Title = "ระบบขั้นสูง",
-    Desc = "เปิดเพื่อใช้ระบบใหม่ (มี FOV, Team Filter)",
-    Icon = "settings",
-    Type = "Checkbox",
-    Value = useAdvancedSystem,
-    Callback = function(state)
-        useAdvancedSystem = state
-        FOVCircle.Visible = state and getgenv().SilentAimbot
-        AimLine.Visible = state and getgenv().SilentAimbot
-    end
-})
 
--- Slider FOV
 Tab:Slider({
     Title = "FOV Size",
-    Desc = "ปรับขนาด Field of View",
+    Desc = "ปรับวง",
     Step = 1,
     Value = {
         Min = 50,
@@ -382,35 +268,15 @@ Tab:Slider({
     end
 })
 
--- Dropdown เลือกทีม
+
 Tab:Dropdown({
-    Title = "Target Teams",
-    Desc = "เลือกทีมที่ต้องการล็อค",
+    Title = "Search Teame lock",
+    Desc = "เลือกทีมที่จะให้Silent aimมันล็อค",
     Values = { "Neutral", "Guards", "Inmates", "Criminals" },
     Value = { "Neutral" },
     Multi = true,
     AllowNone = false,
     Callback = function(selectedTeams)
         updateTeamsFromDropdown(selectedTeams)
-    end
-})
-
--- ปุ่มทดสอบ
-Tab:Button({
-    Title = "ทดสอบระบบ",
-    Desc = "แสดงข้อมูลเกี่ยวกับระบบ Silent Aim",
-    Callback = function()
-        print("=== SILENT AIM TEST ===")
-        print("Status:", getgenv().SilentAimbot and "ON" or "OFF")
-        print("System:", useAdvancedSystem and "Advanced" or "Simple")
-        print("FOV:", getgenv().SAIM_FOV)
-        print("Teams selected:", game:GetService("HttpService"):JSONEncode(getgenv().SAIM_TEAM_LIST))
-        
-        local target = getTarget()
-        if target then
-            print("Current target:", target.Parent.Name)
-        else
-            print("No target found")
-        end
     end
 })
