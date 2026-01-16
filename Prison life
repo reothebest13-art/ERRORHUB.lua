@@ -341,7 +341,7 @@ end)
 local Tab = Window:Tab({Title = "MAIN", Icon = "list"})
 
 -- Toggle Silent Aim
-AimTab:Toggle({
+Tab:Toggle({
     Title = "Silent Aim",
     Desc = "เปิดใช้งาน Silent Aim",
     Icon = "target",
