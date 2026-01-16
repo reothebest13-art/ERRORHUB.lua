@@ -354,7 +354,7 @@ AimTab:Toggle({
 })
 
 -- Toggle เลือกระบบ
-AimTab:Toggle({
+Tab:Toggle({
     Title = "ระบบขั้นสูง",
     Desc = "เปิดเพื่อใช้ระบบใหม่ (มี FOV, Team Filter)",
     Icon = "settings",
@@ -368,7 +368,7 @@ AimTab:Toggle({
 })
 
 -- Slider FOV
-AimTab:Slider({
+Tab:Slider({
     Title = "FOV Size",
     Desc = "ปรับขนาด Field of View",
     Step = 1,
@@ -383,7 +383,7 @@ AimTab:Slider({
 })
 
 -- Dropdown เลือกทีม
-AimTab:Dropdown({
+Tab:Dropdown({
     Title = "Target Teams",
     Desc = "เลือกทีมที่ต้องการล็อค",
     Values = { "Neutral", "Guards", "Inmates", "Criminals" },
@@ -396,7 +396,7 @@ AimTab:Dropdown({
 })
 
 -- ปุ่มทดสอบ
-AimTab:Button({
+Tab:Button({
     Title = "ทดสอบระบบ",
     Desc = "แสดงข้อมูลเกี่ยวกับระบบ Silent Aim",
     Callback = function()
