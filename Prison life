@@ -295,6 +295,175 @@ end
 plr.Backpack.ChildAdded:Connect(HandleBuffOnTool)
 
 
+-- SERVICES
+-- ===============================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- ===============================
+-- SETTINGS
+-- ===============================
+local ESPSettings = {
+    Enabled  = false,
+    Name     = true,
+    Distance = true,
+    Health   = true
+}
+
+local TEXT_SIZE = 16
+
+-- ===============================
+-- STORAGE
+-- ===============================
+local ESP = {}
+
+-- ===============================
+-- HEALTH COLOR
+-- ===============================
+local function HealthColor(p)
+    if p > 60 then
+        return Color3.fromRGB(0,255,0)
+    elseif p > 30 then
+        return Color3.fromRGB(255,170,0)
+    else
+        return Color3.fromRGB(255,0,0)
+    end
+end
+
+-- ===============================
+-- UPDATE VISIBILITY
+-- ===============================
+local function updateAllESPVisibility()
+    for _, d in pairs(ESP) do
+        d.Name.Visible = false
+        d.Distance.Visible = false
+        d.Health.Visible = false
+    end
+end
+
+-- ===============================
+-- CREATE ESP
+-- ===============================
+local function CreateESP(player)
+    if player == LocalPlayer then return end
+
+    local nameText = Drawing.new("Text")
+    nameText.Size = TEXT_SIZE
+    nameText.Font = 2
+    nameText.Outline = true
+    nameText.Center = false
+    nameText.Visible = false
+
+    local distText = Drawing.new("Text")
+    distText.Size = TEXT_SIZE
+    distText.Font = 2
+    distText.Outline = true
+    distText.Center = false
+    distText.Color = Color3.new(1,1,1)
+    distText.Visible = false
+
+    local hpText = Drawing.new("Text")
+    hpText.Size = TEXT_SIZE
+    hpText.Font = 2
+    hpText.Outline = true
+    hpText.Center = false
+    hpText.Visible = false
+
+    ESP[player] = {
+        Name = nameText,
+        Distance = distText,
+        Health = hpText
+    }
+end
+
+local function RemoveESP(player)
+    if ESP[player] then
+        ESP[player].Name:Remove()
+        ESP[player].Distance:Remove()
+        ESP[player].Health:Remove()
+        ESP[player] = nil
+    end
+end
+
+for _, p in pairs(Players:GetPlayers()) do
+    CreateESP(p)
+end
+Players.PlayerAdded:Connect(CreateESP)
+Players.PlayerRemoving:Connect(RemoveESP)
+
+-- ===============================
+-- RENDER LOOP
+-- ===============================
+RunService.RenderStepped:Connect(function()
+    if not ESPSettings.Enabled then return end
+
+    local myChar = LocalPlayer.Character
+    local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHrp then return end
+
+    for player, data in pairs(ESP) do
+        local char = player.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+        if hrp and hum and hum.Health > 0 then
+            local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+            if onScreen then
+                local baseX, baseY = pos.X, pos.Y - 30
+                local offsetX = 0
+                local dist = (myHrp.Position - hrp.Position).Magnitude
+
+                -- NAME
+                if ESPSettings.Name then
+                    data.Name.Text = player.Name
+                    data.Name.Color = (player.Team and player.Team.TeamColor)
+                        and player.Team.TeamColor.Color or Color3.new(1,1,1)
+                    data.Name.Position = Vector2.new(baseX, baseY)
+                    data.Name.Visible = true
+                    offsetX = data.Name.TextBounds.X
+                else
+                    data.Name.Visible = false
+                end
+
+                -- DISTANCE
+                if ESPSettings.Distance then
+                    data.Distance.Text = " | " .. math.floor(dist)
+                    data.Distance.Position = Vector2.new(baseX + offsetX, baseY)
+                    data.Distance.Visible = true
+                    offsetX += data.Distance.TextBounds.X
+                else
+                    data.Distance.Visible = false
+                end
+
+                -- HEALTH
+                if ESPSettings.Health then
+                    local hp = math.floor((hum.Health / hum.MaxHealth) * 100)
+                    data.Health.Text = " | " .. hp .. "%"
+                    data.Health.Color = HealthColor(hp)
+                    data.Health.Position = Vector2.new(baseX + offsetX, baseY)
+                    data.Health.Visible = true
+                else
+                    data.Health.Visible = false
+                end
+            else
+                data.Name.Visible = false
+                data.Distance.Visible = false
+                data.Health.Visible = false
+            end
+        else
+            data.Name.Visible = false
+            data.Distance.Visible = false
+            data.Health.Visible = false
+        end
+    end
+end)
+
+-- ===============================
+-- UI TOGGLES
+-- ===============================
+
 
 local Tab = Window:Tab({Title = "MAIN", Icon = "list"})
 
@@ -356,5 +525,47 @@ Tab:Toggle({
                 HandleBuffOnTool(tool)
             end
         end
+    end
+})
+
+local ESPTab = Window:Tab({Title = "ESP", Icon = "eye"})
+
+ESPTab:Toggle({
+    Title = "ESP Enable",
+    Desc = "เปิด / ปิด ESP ทั้งหมด",
+    Default = false,
+    Callback = function(state)
+        ESPSettings.Enabled = state
+        updateAllESPVisibility()
+    end
+})
+
+ESPTab:Toggle({
+    Title = "ESP Name",
+    Desc = "แสดงชื่อ",
+    Default = true,
+    Callback = function(state)
+        ESPSettings.Name = state
+        updateAllESPVisibility()
+    end
+})
+
+ESPTab:Toggle({
+    Title = "ESP Distance",
+    Desc = "แสดงระยะ",
+    Default = true,
+    Callback = function(state)
+        ESPSettings.Distance = state
+        updateAllESPVisibility()
+    end
+})
+
+ESPTab:Toggle({
+    Title = "ESP Health",
+    Desc = "แสดงเลือด (%)",
+    Default = true,
+    Callback = function(state)
+        ESPSettings.Health = state
+        updateAllESPVisibility()
     end
 })
