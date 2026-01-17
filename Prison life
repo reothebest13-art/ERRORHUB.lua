@@ -570,6 +570,35 @@ Players.PlayerRemoving:Connect(function(p)
     clearESPGUN(p)
 end)
 
+-- 
+-- walkspeed
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+-- Settings
+local SpeedSettings = {
+    Enabled = false,
+    Speed = 16
+}
+
+local function updateWalkSpeed()
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+
+    hum.WalkSpeed = SpeedSettings.Enabled and SpeedSettings.Speed or 16
+end
+
+-- กันตายแล้วหาย
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.3)
+    updateWalkSpeed()
+end)
+
+-- Toggle
 
 
 
@@ -680,5 +709,33 @@ EspTab:Toggle({
         if not state then
             clearAllESPGUN()
         end
+    end
+})
+
+
+local bodyTab = Window:Tab({Title = "Body", Icon = "dna"})
+
+
+bodyTab:Toggle({
+    Title = "Walk Speed",
+    Desc = "เปิด / ปิด ความเร็วเดิน",
+    Default = false,
+    Callback = function(state)
+        SpeedSettings.Enabled = state
+        updateWalkSpeed()
+    end
+})
+
+-- Slider
+bodyTab:Slider({
+    Title = "Speed Value",
+    Desc = "ปรับความเร็วเดิน",
+    Min = 16,
+    Max = 100,
+    Default = 16,
+    Rounding = 0,
+    Callback = function(value)
+        SpeedSettings.Speed = value
+        updateWalkSpeed()
     end
 })
