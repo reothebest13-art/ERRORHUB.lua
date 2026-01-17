@@ -572,33 +572,47 @@ end)
 
 -- 
 -- walkspeed
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
 
--- Settings
-local SpeedSettings = {
-    Enabled = false,
-    Speed = 16
+--// Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+--// Body Settings
+local Body = {
+    WalkSpeed = {
+        Enabled = false,
+        Value = 16,
+        Default = 16
+    }
 }
 
-local function updateWalkSpeed()
+--// Function รวม
+local function UpdateBody()
     local char = LocalPlayer.Character
     if not char then return end
 
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum then return end
 
-    hum.WalkSpeed = SpeedSettings.Enabled and SpeedSettings.Speed or 16
+    -- WalkSpeed
+    hum.WalkSpeed = Body.WalkSpeed.Enabled
+        and Body.WalkSpeed.Value
+        or Body.WalkSpeed.Default
 end
 
--- กันตายแล้วหาย
+--// กันตายแล้วค่าไม่หาย
 LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(0.3)
-    updateWalkSpeed()
+    task.wait(0.2)
+    UpdateBody()
 end)
 
--- Toggle
+--// กันเกมเซ็ตกลับ
+RunService.Heartbeat:Connect(function()
+    if Body.WalkSpeed.Enabled then
+        UpdateBody()
+    end
+end)
 
 
 
@@ -715,27 +729,28 @@ EspTab:Toggle({
 
 local bodyTab = Window:Tab({Title = "Body", Icon = "dna"})
 
-
-bodyTab:Toggle({
+BodyTab:Toggle({
     Title = "Walk Speed",
     Desc = "เปิด / ปิด ความเร็วเดิน",
     Default = false,
     Callback = function(state)
-        SpeedSettings.Enabled = state
-        updateWalkSpeed()
+        Body.WalkSpeed.Enabled = state
+        UpdateBody()
     end
 })
 
--- Slider
-bodyTab:Slider({
+-- Slider WalkSpeed
+BodyTab:Slider({
     Title = "Speed Value",
     Desc = "ปรับความเร็วเดิน",
-    Min = 16,
-    Max = 100,
-    Default = 16,
-    Rounding = 0,
+    Step = 1,
+    Value = {
+        Min = 16,
+        Max = 120,
+        Default = 16
+    },
     Callback = function(value)
-        SpeedSettings.Speed = value
-        updateWalkSpeed()
+        Body.WalkSpeed.Value = value
+        UpdateBody()
     end
 })
