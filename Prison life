@@ -116,8 +116,11 @@ local ESP_Name = false
 local ESP_Health = false
 local ESP_Distance = false
 local ESP_Highlight = false
-
 local TEXT_SIZE = 12
+
+local jumpEnabled = false
+local jumpPowerValue = 50
+local jumpLoop = nil
 
 
 -- DRAW FOV CIRCLE 
@@ -587,7 +590,7 @@ local Body = {
     }
 }
 
---// Function รวม
+
 local function UpdateBody()
     local char = LocalPlayer.Character
     if not char then return end
@@ -614,6 +617,27 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+
+-- โดดสูง
+local function toggleHighJump(on)
+    jumpEnabled = on
+
+    if jumpLoop then
+        jumpLoop:Disconnect()
+        jumpLoop = nil
+    end
+
+    if on then
+        jumpLoop = RunService.Heartbeat:Connect(function()
+            local char = player.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.UseJumpPower = true
+                hum.JumpPower = jumpPowerValue
+            end
+        end)
+    end
+end
 
 
 local Tab = Window:Tab({Title = "MAIN", Icon = "list"})
@@ -752,5 +776,29 @@ bodyTab:Slider({
     Callback = function(value)
         Body.WalkSpeed.Value = value
         UpdateBody()
+    end
+})
+
+
+bodyTab:Toggle({
+    Title = "Jump power",
+    Desc = "โดดสูง",
+    Default = false,
+    Callback = function(v)
+        toggleHighJump(v)
+    end
+})
+
+bodyTab:Slider({
+    Title = "Jump Slider",
+    Desc = "ปรับความสูงการกระโดด",
+    Step = 5,
+    Value = {
+        Min = 50,
+        Max = 500,
+        Default = 50
+    },
+    Callback = function(v)
+        jumpPowerValue = tonumber(v) or 50
     end
 })
