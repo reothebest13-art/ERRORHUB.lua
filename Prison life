@@ -444,6 +444,133 @@ Players.PlayerAdded:Connect(createESP)
 
 
 
+-- -----------
+-- ESPGUN
+-- -----------
+
+-- =========================
+-- ESP GUN (IMAGE ONLY)
+-- =========================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- 🔫 อาวุธ + รูป
+local WEAPONS = {
+    ["M9"] = "rbxassetid://121771988549115",
+    ["Remington 870"] = "rbxassetid://80406360248544",
+    ["MP5"] = "rbxassetid://95606011187656",
+}
+
+-- =========================
+-- SETTINGS
+-- =========================
+local ESPGUNEnabled = false
+local BillboardCache = {}
+
+-- =========================
+-- REMOVE ESP
+-- =========================
+local function clearESPGUN(player)
+    if BillboardCache[player] then
+        BillboardCache[player]:Destroy()
+        BillboardCache[player] = nil
+    end
+end
+
+local function clearAllESPGUN()
+    for _, p in ipairs(Players:GetPlayers()) do
+        clearESPGUN(p)
+    end
+end
+
+-- =========================
+-- CREATE / UPDATE ESP
+-- =========================
+local function updateESPGUN(player)
+    if not ESPGUNEnabled then
+        clearESPGUN(player)
+        return
+    end
+
+    if not player.Character then return end
+    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    clearESPGUN(player)
+
+    local tools = {}
+
+    -- Backpack
+    if player:FindFirstChild("Backpack") then
+        for _, t in ipairs(player.Backpack:GetChildren()) do
+            if t:IsA("Tool") and WEAPONS[t.Name] then
+                table.insert(tools, t)
+            end
+        end
+    end
+
+    -- ถืออยู่
+    for _, t in ipairs(player.Character:GetChildren()) do
+        if t:IsA("Tool") and WEAPONS[t.Name] then
+            table.insert(tools, t)
+        end
+    end
+
+    if #tools == 0 then return end
+
+    -- Billboard
+    local gui = Instance.new("BillboardGui")
+    gui.Name = "ESPGUN"
+    gui.Adornee = hrp
+    gui.Size = UDim2.new(0, 120, 0, 28)
+    gui.StudsOffset = Vector3.new(0, -5, 0)
+    gui.AlwaysOnTop = true
+    gui.Parent = player.Character
+
+    local layout = Instance.new("UIListLayout", gui)
+    layout.FillDirection = Enum.FillDirection.Horizontal
+    layout.Padding = UDim.new(0, 6)
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+    for _, tool in ipairs(tools) do
+        local img = Instance.new("ImageLabel", gui)
+        img.Size = UDim2.new(0, 22, 0, 22)
+        img.BackgroundColor3 = Color3.fromRGB(35,35,35)
+        img.BackgroundTransparency = 0.1
+        img.Image = WEAPONS[tool.Name]
+
+        Instance.new("UICorner", img).CornerRadius = UDim.new(0, 6)
+
+        local stroke = Instance.new("UIStroke", img)
+        if tool.Parent == player.Character then
+            stroke.Color = Color3.fromRGB(0,170,255) -- 🔵 ถืออยู่
+            stroke.Thickness = 2
+        else
+            stroke.Transparency = 1
+        end
+    end
+
+    BillboardCache[player] = gui
+end
+
+-- =========================
+-- LOOP
+-- =========================
+RunService.Heartbeat:Connect(function()
+    if not ESPGUNEnabled then return end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            updateESPGUN(p)
+        end
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(p)
+    clearESPGUN(p)
+end)
+
+
 
 
 local Tab = Window:Tab({Title = "MAIN", Icon = "list"})
@@ -540,5 +667,18 @@ EspTab:Toggle({
     Value = false,
     Callback = function(v)
         ESP_Highlight = v
+    end
+})
+
+
+EspTab:Toggle({
+    Title = "ESP Gun player",
+    Desc = "มองปืนในตัวอะ",
+    Default = false,
+    Callback = function(state)
+        ESPGUNEnabled = state
+        if not state then
+            clearAllESPGUN()
+        end
     end
 })
