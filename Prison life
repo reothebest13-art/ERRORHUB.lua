@@ -112,7 +112,12 @@ getgenv().SAIM_TEAM_LIST = {
     Criminals = false
 }
 local buffEnabled = false
+local ESP_Name = false
+local ESP_Health = false
+local ESP_Distance = false
+local ESP_Highlight = false
 
+local TEXT_SIZE = 12
 
 
 -- DRAW FOV CIRCLE 
@@ -298,31 +303,34 @@ plr.Backpack.ChildAdded:Connect(HandleBuffOnTool)
 -- ====
 -- esp
 -- ===
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
---// ESP Toggle
-local ESP_Name = false
-local ESP_Health = false
-local ESP_Distance = false
-local ESP_Highlight = false
 
-local TEXT_SIZE = 12
-
---// Folder
 local ESP_FOLDER = Instance.new("Folder")
 ESP_FOLDER.Name = "ESP_FOLDER"
 ESP_FOLDER.Parent = CoreGui
 
---// สีตามทีม
+--// สีทีม
 local function getTeamColor(player)
     if player.Team and player.TeamColor then
         return player.TeamColor.Color
     end
     return Color3.fromRGB(255,255,255)
+end
+
+--// สีเลือด
+local function getHealthColor(hp, maxHp)
+    local percent = hp / maxHp
+    if percent > 0.6 then
+        return Color3.fromRGB(0,255,0)
+    elseif percent > 0.3 then
+        return Color3.fromRGB(255,255,0)
+    else
+        return Color3.fromRGB(255,0,0)
+    end
 end
 
 --// Create ESP
@@ -396,17 +404,17 @@ local function createESP(player)
                 return
             end
 
-            local color = getTeamColor(player)
+            local teamColor = getTeamColor(player)
             local hp = math.floor(hum.Health)
 
-            -- Name
+            -- Name (สีทีม)
             nameLabel.Visible = ESP_Name
-            nameLabel.TextColor3 = color
+            nameLabel.TextColor3 = teamColor
 
-            -- HP
+            -- HP (สีตามเลือด)
             hpLabel.Visible = ESP_Health
             hpLabel.Text = "HP: "..hp
-            hpLabel.TextColor3 = color
+            hpLabel.TextColor3 = getHealthColor(hp, hum.MaxHealth)
 
             -- Distance
             distGui.Enabled = ESP_Distance
@@ -415,10 +423,10 @@ local function createESP(player)
                 distLabel.Text = math.floor(dist).." m"
             end
 
-            -- Highlight
+            -- Highlight (สีทีม)
             hl.Enabled = ESP_Highlight
-            hl.FillColor = color
-            hl.OutlineColor = color
+            hl.FillColor = teamColor
+            hl.OutlineColor = teamColor
         end)
     end
 
@@ -433,6 +441,8 @@ for _,plr in ipairs(Players:GetPlayers()) do
     createESP(plr)
 end
 Players.PlayerAdded:Connect(createESP)
+
+
 
 
 
