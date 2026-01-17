@@ -729,7 +729,7 @@ EspTab:Toggle({
 
 local bodyTab = Window:Tab({Title = "Body", Icon = "dna"})
 
-BodyTab:Toggle({
+bodyTab:Toggle({
     Title = "Walk Speed",
     Desc = "เปิด / ปิด ความเร็วเดิน",
     Default = false,
@@ -740,7 +740,7 @@ BodyTab:Toggle({
 })
 
 -- Slider WalkSpeed
-BodyTab:Slider({
+bodyTab:Slider({
     Title = "Speed Value",
     Desc = "ปรับความเร็วเดิน",
     Step = 1,
