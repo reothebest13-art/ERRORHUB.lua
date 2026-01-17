@@ -121,6 +121,7 @@ local TEXT_SIZE = 12
 local jumpEnabled = false
 local jumpPowerValue = 50
 local jumpLoop = nil
+local InfiniteJumpEnabled = false
 
 
 -- DRAW FOV CIRCLE 
@@ -640,6 +641,29 @@ local function toggleHighJump(on)
 end
 
 
+-- อินฟินิตี้จั้ม
+
+
+local humanoid
+local function setupHumanoid(character)
+    humanoid = character:WaitForChild("Humanoid")
+    humanoid:GetPropertyChangedSignal("Jump"):Connect(function()
+        if InfiniteJumpEnabled and humanoid.Jump then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end)
+end
+
+if Players.LocalPlayer.Character then
+    setupHumanoid(Players.LocalPlayer.Character)
+end
+
+Players.LocalPlayer.CharacterAdded:Connect(function(char)
+    setupHumanoid(char)
+end)
+
+
+
 local Tab = Window:Tab({Title = "MAIN", Icon = "list"})
 
 Tab:Toggle({
@@ -781,6 +805,30 @@ bodyTab:Slider({
 
 
 bodyTab:Toggle({
+    Title = "Jump power",
+    Desc = "โดดสูง",
+    Default = false,
+    Callback = function(v)
+        toggleHighJump(v)
+    end
+})
+
+bodyTab:Slider({
+    Title = "Jump Slider",
+    Desc = "ปรับความสูงการกระโดด",
+    Step = 5,
+    Value = {
+        Min = 50,
+        Max = 500,
+        Default = 50
+    },
+    Callback = function(v)
+        jumpPowerValue = tonumber(v) or 50
+    end
+})
+
+
+MainTab:Toggle({
     Title = "Jump power",
     Desc = "โดดสูง",
     Default = false,
