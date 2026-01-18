@@ -443,61 +443,51 @@ end
 Players.PlayerAdded:Connect(createESP)
 
 
-
--- -----------
--- ESPGUN
--- -----------
-
 -- =========================
--- ESP GUN (IMAGE ONLY)
+-- ESPGUN (Inventory ESP)
 -- =========================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- 🔫 อาวุธ + รูป
+-- =========================
+-- SETTINGS
+-- =========================
+local ESPSettings = {
+    Enabled = false
+}
+
+-- 🔫 ปืน + รูป (ของคุณ)
 local WEAPONS = {
     ["M9"] = "rbxassetid://121771988549115",
     ["Remington 870"] = "rbxassetid://80406360248544",
     ["MP5"] = "rbxassetid://95606011187656",
 }
 
--- =========================
--- SETTINGS
--- =========================
-local ESPGUNEnabled = false
+-- ขนาดรูป (ปรับตามระยะ)
+local BASE_SIZE = 20
+local MIN_SIZE  = 12
+local MAX_SIZE  = 20
+
 local BillboardCache = {}
 
 -- =========================
--- REMOVE ESP
+-- UPDATE PLAYER ESP
 -- =========================
-local function clearESPGUN(player)
+local function updatePlayer(player)
+    if not ESPSettings.Enabled then return end
+    if player == LocalPlayer then return end
+    if not player.Character then return end
+
+    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    -- ลบของเก่า
     if BillboardCache[player] then
         BillboardCache[player]:Destroy()
         BillboardCache[player] = nil
     end
-end
-
-local function clearAllESPGUN()
-    for _, p in ipairs(Players:GetPlayers()) do
-        clearESPGUN(p)
-    end
-end
-
--- =========================
--- CREATE / UPDATE ESP
--- =========================
-local function updateESPGUN(player)
-    if not ESPGUNEnabled then
-        clearESPGUN(player)
-        return
-    end
-
-    if not player.Character then return end
-    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-
-    clearESPGUN(player)
 
     local tools = {}
 
@@ -519,33 +509,44 @@ local function updateESPGUN(player)
 
     if #tools == 0 then return end
 
+    -- 📏 คำนวณระยะ → ย่อรูป
+    local dist = (Camera.CFrame.Position - hrp.Position).Magnitude
+    local iconSize = math.clamp(BASE_SIZE * (40 / dist), MIN_SIZE, MAX_SIZE)
+
     -- Billboard
     local gui = Instance.new("BillboardGui")
     gui.Name = "ESPGUN"
     gui.Adornee = hrp
-    gui.Size = UDim2.new(0, 120, 0, 28)
+    gui.Size = UDim2.new(0, 90, 0, 22)
     gui.StudsOffset = Vector3.new(0, -5, 0)
     gui.AlwaysOnTop = true
     gui.Parent = player.Character
 
-    local layout = Instance.new("UIListLayout", gui)
+    -- Layout (แบบเดิมของคุณ)
+    local layout = Instance.new("UIListLayout")
+    layout.Parent = gui
     layout.FillDirection = Enum.FillDirection.Horizontal
-    layout.Padding = UDim.new(0, 6)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 5)
     layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
+    -- Icons
     for _, tool in ipairs(tools) do
-        local img = Instance.new("ImageLabel", gui)
-        img.Size = UDim2.new(0, 22, 0, 22)
-        img.BackgroundColor3 = Color3.fromRGB(35,35,35)
+        local img = Instance.new("ImageLabel")
+        img.Parent = gui
+        img.Size = UDim2.new(0, iconSize, 0, iconSize)
         img.BackgroundTransparency = 0.1
+        img.BackgroundColor3 = Color3.fromRGB(240, 248, 255)
         img.Image = WEAPONS[tool.Name]
 
-        Instance.new("UICorner", img).CornerRadius = UDim.new(0, 6)
+        Instance.new("UICorner", img).CornerRadius = UDim.new(0, 8)
 
         local stroke = Instance.new("UIStroke", img)
+        stroke.Thickness = 2
+
+        -- 🔵 ถืออยู่ = ขอบฟ้า
         if tool.Parent == player.Character then
-            stroke.Color = Color3.fromRGB(0,170,255) -- 🔵 ถืออยู่
-            stroke.Thickness = 2
+            stroke.Color = Color3.fromRGB(0,170,255)
         else
             stroke.Transparency = 1
         end
@@ -555,20 +556,42 @@ local function updateESPGUN(player)
 end
 
 -- =========================
+-- UPDATE / CLEAN ALL
+-- =========================
+local function updateAllESPVisibility()
+    if not ESPSettings.Enabled then
+        for _, gui in pairs(BillboardCache) do
+            if gui then gui:Destroy() end
+        end
+        BillboardCache = {}
+        return
+    end
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        updatePlayer(p)
+    end
+end
+
+-- =========================
 -- LOOP
 -- =========================
 RunService.Heartbeat:Connect(function()
-    if not ESPGUNEnabled then return end
+    if not ESPSettings.Enabled then return end
     for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            updateESPGUN(p)
-        end
+        updatePlayer(p)
     end
 end)
 
 Players.PlayerRemoving:Connect(function(p)
-    clearESPGUN(p)
+    if BillboardCache[p] then
+        BillboardCache[p]:Destroy()
+        BillboardCache[p] = nil
+    end
 end)
+
+
+
+
 
 -- 
 -- walkspeed
@@ -715,23 +738,20 @@ EspTab:Toggle({
 
 
 EspTab:Toggle({
-    Title = "ESP Gun player",
+    Title = "ESP GUN Play",
     Desc = "มองปืนในตัวอะ",
     Default = false,
     Callback = function(state)
-        ESPGUNEnabled = state
-        if not state then
-            clearAllESPGUN()
-        end
+        ESPSettings.Enabled = state
+        updateAllESPVisibility()
     end
 })
-
 
 local bodyTab = Window:Tab({Title = "Body", Icon = "dna"})
 
 bodyTab:Toggle({
     Title = "Walk Speed",
-    Desc = "เปิด / ปิด ความเร็วเดิน",
+    Desc = "วิ่งเร็ว",
     Default = false,
     Callback = function(state)
         Body.WalkSpeed.Enabled = state
@@ -739,10 +759,10 @@ bodyTab:Toggle({
     end
 })
 
--- Slider WalkSpeed
+
 bodyTab:Slider({
     Title = "Speed Value",
-    Desc = "ปรับความเร็วเดิน",
+    Desc = "ปรับความเร็วการวิ่ง",
     Step = 1,
     Value = {
         Min = 16,
