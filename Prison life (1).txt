@@ -123,8 +123,19 @@ local ESP_Name = false
 local ESP_Health = false
 local ESP_Distance = false
 local ESP_Highlight = false
-
 local TEXT_SIZE = 12
+
+local Body = {
+    WalkSpeed = {
+        Enabled = false,
+        Value = 16,
+        Default = 16
+    }
+}
+
+
+
+
 
 
 -- DRAW FOV CIRCLE 
@@ -450,38 +461,25 @@ end
 Players.PlayerAdded:Connect(createESP)
 
 
--- =========================
--- ESPGUN (Inventory ESP)
--- =========================
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
-local LocalPlayer = Players.LocalPlayer
 
--- =========================
--- SETTINGS
--- =========================
+-- ESPGUN 
+
 local ESPSettings = {
     Enabled = false
 }
 
--- 🔫 ปืน + รูป (ของคุณ)
 local WEAPONS = {
     ["M9"] = "rbxassetid://121771988549115",
     ["Remington 870"] = "rbxassetid://80406360248544",
     ["MP5"] = "rbxassetid://95606011187656",
 }
-
--- ขนาดรูป (ปรับตามระยะ)
+-- ขนาดรูป 
 local BASE_SIZE = 20
 local MIN_SIZE  = 12
 local MAX_SIZE  = 20
 
 local BillboardCache = {}
 
--- =========================
--- UPDATE PLAYER ESP
--- =========================
 local function updatePlayer(player)
     if not ESPSettings.Enabled then return end
     if player == LocalPlayer then return end
@@ -507,7 +505,6 @@ local function updatePlayer(player)
         end
     end
 
-    -- ถืออยู่
     for _, t in ipairs(player.Character:GetChildren()) do
         if t:IsA("Tool") and WEAPONS[t.Name] then
             table.insert(tools, t)
@@ -516,7 +513,6 @@ local function updatePlayer(player)
 
     if #tools == 0 then return end
 
-    -- 📏 คำนวณระยะ → ย่อรูป
     local dist = (Camera.CFrame.Position - hrp.Position).Magnitude
     local iconSize = math.clamp(BASE_SIZE * (40 / dist), MIN_SIZE, MAX_SIZE)
 
@@ -529,7 +525,7 @@ local function updatePlayer(player)
     gui.AlwaysOnTop = true
     gui.Parent = player.Character
 
-    -- Layout (แบบเดิมของคุณ)
+    -- Layout
     local layout = Instance.new("UIListLayout")
     layout.Parent = gui
     layout.FillDirection = Enum.FillDirection.Horizontal
@@ -551,7 +547,7 @@ local function updatePlayer(player)
         local stroke = Instance.new("UIStroke", img)
         stroke.Thickness = 2
 
-        -- 🔵 ถืออยู่ = ขอบฟ้า
+        -- สีตอนถือถ้ามึงแครกไปด้ายก็เปลี่ยนสีส่ะ
         if tool.Parent == player.Character then
             stroke.Color = Color3.fromRGB(0,170,255)
         else
@@ -562,9 +558,6 @@ local function updatePlayer(player)
     BillboardCache[player] = gui
 end
 
--- =========================
--- UPDATE / CLEAN ALL
--- =========================
 local function updateAllESPVisibility()
     if not ESPSettings.Enabled then
         for _, gui in pairs(BillboardCache) do
@@ -579,9 +572,6 @@ local function updateAllESPVisibility()
     end
 end
 
--- =========================
--- LOOP
--- =========================
 RunService.Heartbeat:Connect(function()
     if not ESPSettings.Enabled then return end
     for _, p in ipairs(Players:GetPlayers()) do
@@ -603,21 +593,7 @@ end)
 -- 
 -- walkspeed
 
---// Services
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
 
---// Body Settings
-local Body = {
-    WalkSpeed = {
-        Enabled = false,
-        Value = 16,
-        Default = 16
-    }
-}
-
---// Function รวม
 local function UpdateBody()
     local char = LocalPlayer.Character
     if not char then return end
