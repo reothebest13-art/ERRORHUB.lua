@@ -1,0 +1,190 @@
+local HttpService = game:GetService("HttpService")
+
+local CONFIG = {
+    SAVE_TO_FILE = true,
+    PRINT_TO_CONSOLE = true,
+    LOG_ALL_REQUESTS = true,
+    DECODE_ENCRYPTED = true,
+    HOOK_LOADSTRING = true,
+    HOOK_HTTPGET = true,
+}
+
+local CapturedScripts = {}
+local RequestLog = {}
+local OriginalFunctions = {}
+
+local function createFolder(name)
+    if not isfolder then return false end
+    if not isfolder(name) then
+        makefolder(name)
+    end
+    return true
+end
+
+local function saveToFile(filename, content)
+    if not writefile then 
+        warn("writefile not supported")
+        return false 
+    end
+    
+    createFolder("ScriptDumps")
+    local path = "ScriptDumps/" .. filename
+    
+    writefile(path, content)
+    print("Saved to: " .. path)
+    return true
+end
+
+local function hexToString(hex)
+    local result = ""
+    for i = 1, #hex, 2 do
+        local byte = tonumber(hex:sub(i, i+1), 16)
+        if byte then
+            result = result .. string.char(byte)
+        end
+    end
+    return result
+end
+
+local function isBase64(str)
+    return str:match("^[A-Za-z0-9+/]+={0,2}$") ~= nil
+end
+
+local function analyzeEncryption(content)
+    if content:match("^[0-9a-fA-F]+$") and #content % 2 == 0 then
+        local decoded = hexToString(content)
+        if decoded:match("loadstring") or decoded:match("game:") then
+            return "hex", decoded
+        end
+    end
+    
+    if isBase64(content) then
+        local decoded = HttpService:JSONDecode(
+            HttpService:GetAsync("data:text/plain;base64," .. content)
+        )
+        if decoded then
+            return "base64", decoded
+        end
+    end
+    
+    -- พยายามถอด caesar shift แบบง่าย ๆ (ไม่แรงมาก)
+    for shift = 1, 25 do
+        local decoded = ""
+        for i = 1, #content do
+            local byte = string.byte(content, i)
+            decoded = decoded .. string.char((byte - shift) % 256)
+        end
+        if decoded:match("loadstring") or decoded:match("game:") then
+            return "caesar_" .. shift, decoded
+        end
+    end
+    
+    return "plain", content
+end
+
+do
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+        if getnamecallmethod() == "HttpGet" or getnamecallmethod() == "HttpGetAsync" then
+            local url = ...
+            print("[HTTP GET] " .. tostring(url))
+            
+            local response = oldNamecall(self, ...)
+            
+            if response and #response > 0 then
+                local timestamp = os.date("%Y%m%d_%H%M%S")
+                local filename = "HttpGet_" .. timestamp .. ".lua"
+                
+                local encType, decoded = analyzeEncryption(response)
+                
+                local logData = {
+                    url = url,
+                    timestamp = timestamp,
+                    encryption = encType,
+                    raw_size = #response,
+                    decoded_size = decoded and #decoded or 0,
+                    content = decoded or response
+                }
+                
+                table.insert(CapturedScripts, logData)
+                
+                print(string.format("[CAPTURED] %s | %d bytes | %s", encType, #response, url))
+                
+                if CONFIG.PRINT_TO_CONSOLE and decoded then
+                    print("┌─ Decoded content " .. string.rep("─", 40))
+                    print(decoded)
+                    print("└" .. string.rep("─", 50))
+                end
+                
+                if CONFIG.SAVE_TO_FILE then
+                    saveToFile(filename, decoded or response)
+                    saveToFile(filename .. ".info.json", HttpService:JSONEncode(logData))
+                end
+            end
+            
+            return response
+        end
+        
+        return oldNamecall(self, ...)
+    end)
+    print("HttpGet hooked")
+end
+
+-- Hook loadstring
+do
+    local oldLoadstring = loadstring
+    getgenv().loadstring = function(source, chunkname)
+        if source and #source > 0 then
+            local timestamp = os.date("%Y%m%d_%H%M%S")
+            local filename = "Loadstring_" .. timestamp .. ".lua"
+            
+            print("[LOADSTRING] " .. #source .. " bytes")
+            
+            local encType, decoded = analyzeEncryption(source)
+            
+            local logData = {
+                timestamp = timestamp,
+                encryption = encType,
+                chunkname = chunkname or "unknown",
+                raw_size = #source,
+                decoded_size = decoded and #decoded or 0,
+                content = decoded or source
+            }
+            
+            table.insert(CapturedScripts, logData)
+            
+            print("[TYPE] " .. encType)
+            
+            if CONFIG.PRINT_TO_CONSOLE and decoded then
+                print("┌─ Decoded loadstring " .. string.rep("─", 35))
+                print(decoded)
+                print("└" .. string.rep("─", 45))
+            end
+            
+            if CONFIG.SAVE_TO_FILE then
+                saveToFile(filename, decoded or source)
+                saveToFile(filename .. ".info.json", HttpService:JSONEncode(logData))
+            end
+        end
+        
+        return oldLoadstring(source, chunkname)
+    end
+    print("loadstring hooked")
+end
+
+print("Script Interceptor initialized")
+print("Saving captured scripts → ScriptDumps/")
+print("Available commands:")
+print(" • dumpScripts()")
+print(" • getScript(n)")
+print(" • clearScripts()")
+print(" • exportAll()")
+
+task.wait(3)
+
+_G.Key = "faf8fe656b682924"
+_G.ScriptID = 12
+
+loadstring(game:HttpGet("https://rizz-rxs.xyz/script/api/loader.lua", true))()
+
+print("Target script executed. Check ScriptDumps folder if anything was captured.")
