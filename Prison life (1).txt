@@ -1,4 +1,11 @@
 
+-- ==================================================
+-- ยินดีด้วยมึงแครกกูแตกแล้วเสียเวลาไปกับโค้ดกากๆนั้งอ้วนอยู่หน้าจอเห้อ😂
+-- Congratulations on cracking my code, you idiot. You wasted my time on crappy code.😂
+-- ================≠===================================
+
+
+
 
 local WindUI = loadstring(game:HttpGet(
     "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"
