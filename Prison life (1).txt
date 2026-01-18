@@ -473,12 +473,42 @@ local WEAPONS = {
     ["Remington 870"] = "rbxassetid://80406360248544",
     ["MP5"] = "rbxassetid://95606011187656",
 }
--- ขนาดรูป 
-local BASE_SIZE = 20
-local MIN_SIZE  = 12
-local MAX_SIZE  = 20
 
-local BillboardCache = {}
+-- ขนาดรูปจะได้ไ
+local BASE_SIZE = 18
+local MIN_SIZE  = 10
+local MAX_SIZE  = 18
+
+local CACHE = {}
+local ESPConnection = nil
+
+local function getWeapons(player)
+    local list = {}
+    local added = {}
+
+    -- Backpack
+    local bp = player:FindFirstChild("Backpack")
+    if bp then
+        for _, t in ipairs(bp:GetChildren()) do
+            if t:IsA("Tool") and WEAPONS[t.Name] and not added[t.Name] then
+                added[t.Name] = true
+                table.insert(list, t)
+            end
+        end
+    end
+
+    -- Holding
+    if player.Character then
+        for _, t in ipairs(player.Character:GetChildren()) do
+            if t:IsA("Tool") and WEAPONS[t.Name] and not added[t.Name] then
+                added[t.Name] = true
+                table.insert(list, t)
+            end
+        end
+    end
+
+    return list
+end
 
 local function updatePlayer(player)
     if not ESPSettings.Enabled then return end
@@ -488,105 +518,88 @@ local function updatePlayer(player)
     local hrp = player.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    -- ลบของเก่า
-    if BillboardCache[player] then
-        BillboardCache[player]:Destroy()
-        BillboardCache[player] = nil
+    local cam = workspace.CurrentCamera
+    if not cam or not cam.CFrame then return end
+
+    -- clear old
+    if CACHE[player] then
+        CACHE[player]:Destroy()
+        CACHE[player] = nil
     end
 
-    local tools = {}
+    local weapons = getWeapons(player)
+    if #weapons == 0 then return end
 
-    -- Backpack
-    if player:FindFirstChild("Backpack") then
-        for _, t in ipairs(player.Backpack:GetChildren()) do
-            if t:IsA("Tool") and WEAPONS[t.Name] then
-                table.insert(tools, t)
-            end
-        end
-    end
+    local dist = (cam.CFrame.Position - hrp.Position).Magnitude
+    local size = math.clamp(BASE_SIZE * (35 / dist), MIN_SIZE, MAX_SIZE)
 
-    for _, t in ipairs(player.Character:GetChildren()) do
-        if t:IsA("Tool") and WEAPONS[t.Name] then
-            table.insert(tools, t)
-        end
-    end
-
-    if #tools == 0 then return end
-
-    local dist = (Camera.CFrame.Position - hrp.Position).Magnitude
-    local iconSize = math.clamp(BASE_SIZE * (40 / dist), MIN_SIZE, MAX_SIZE)
-
-    -- Billboard
     local gui = Instance.new("BillboardGui")
     gui.Name = "ESPGUN"
     gui.Adornee = hrp
-    gui.Size = UDim2.new(0, 90, 0, 22)
-    gui.StudsOffset = Vector3.new(0, -5, 0)
     gui.AlwaysOnTop = true
+    gui.StudsOffset = Vector3.new(0, -5.5, 0)
+    gui.Size = UDim2.new(0, (#weapons * (size + 6)) + 6, 0, size + 6)
     gui.Parent = player.Character
 
-    -- Layout
     local layout = Instance.new("UIListLayout")
     layout.Parent = gui
     layout.FillDirection = Enum.FillDirection.Horizontal
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Padding = UDim.new(0, 5)
     layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    layout.Padding = UDim.new(0, 6)
 
-    -- Icons
-    for _, tool in ipairs(tools) do
+    for _, tool in ipairs(weapons) do
         local img = Instance.new("ImageLabel")
         img.Parent = gui
-        img.Size = UDim2.new(0, iconSize, 0, iconSize)
-        img.BackgroundTransparency = 0.1
-        img.BackgroundColor3 = Color3.fromRGB(240, 248, 255)
+        img.Size = UDim2.new(0, size, 0, size)
         img.Image = WEAPONS[tool.Name]
+        img.BackgroundColor3 = Color3.fromRGB(240,240,240)
+        img.BackgroundTransparency = 0.1
 
-        Instance.new("UICorner", img).CornerRadius = UDim.new(0, 8)
+        Instance.new("UICorner", img).CornerRadius = UDim.new(0, 7)
 
         local stroke = Instance.new("UIStroke", img)
         stroke.Thickness = 2
+        stroke.Transparency = 1
 
-        -- สีตอนถือถ้ามึงแครกไปด้ายก็เปลี่ยนสีส่ะ
+        
         if tool.Parent == player.Character then
+            stroke.Transparency = 0
             stroke.Color = Color3.fromRGB(0,170,255)
-        else
-            stroke.Transparency = 1
         end
     end
 
-    BillboardCache[player] = gui
+    CACHE[player] = gui
 end
 
-local function updateAllESPVisibility()
-    if not ESPSettings.Enabled then
-        for _, gui in pairs(BillboardCache) do
-            if gui then gui:Destroy() end
+local function enableESP()
+    if ESPConnection then return end
+
+    ESPConnection = RunService.Heartbeat:Connect(function()
+        for _, p in ipairs(Players:GetPlayers()) do
+            updatePlayer(p)
         end
-        BillboardCache = {}
-        return
-    end
-
-    for _, p in ipairs(Players:GetPlayers()) do
-        updatePlayer(p)
-    end
+    end)
 end
 
-RunService.Heartbeat:Connect(function()
-    if not ESPSettings.Enabled then return end
-    for _, p in ipairs(Players:GetPlayers()) do
-        updatePlayer(p)
+local function disableESP()
+    if ESPConnection then
+        ESPConnection:Disconnect()
+        ESPConnection = nil
     end
-end)
+
+    for _, gui in pairs(CACHE) do
+        if gui then gui:Destroy() end
+    end
+    CACHE = {}
+end
+
 
 Players.PlayerRemoving:Connect(function(p)
-    if BillboardCache[p] then
-        BillboardCache[p]:Destroy()
-        BillboardCache[p] = nil
+    if CACHE[p] then
+        CACHE[p]:Destroy()
+        CACHE[p] = nil
     end
 end)
-
-
 
 
 
@@ -719,16 +732,22 @@ EspTab:Toggle({
     end
 })
 
-
 EspTab:Toggle({
-    Title = "ESP GUN Play",
+    Title = "ESP GUN Player",
     Desc = "มองปืนในตัวอะ",
     Default = false,
     Callback = function(state)
         ESPSettings.Enabled = state
-        updateAllESPVisibility()
+
+        if state then
+            enableESP()
+        else
+            disableESP()
+        end
     end
 })
+
+
 
 local bodyTab = Window:Tab({Title = "Body", Icon = "dna"})
 
